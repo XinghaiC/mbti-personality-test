@@ -1,0 +1,651 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1024">
+<title>MBTI 性格测评</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --grad-1: #667eea;
+    --grad-2: #764ba2;
+    --card-shadow: 0 20px 60px rgba(0,0,0,.15);
+    --radius: 20px;
+    --transition: .4s cubic-bezier(.4,0,.2,1);
+  }
+  body {
+    font-family: "PingFang SC","Microsoft YaHei","Helvetica Neue",sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    background-attachment: fixed;
+    overflow: hidden;
+  }
+
+  /* ===== 通用卡片容器 ===== */
+  .card {
+    width: 680px;
+    max-height: 90vh;
+    background: #fff;
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 48px 52px;
+    overflow-y: auto;
+    position: relative;
+  }
+  .card::-webkit-scrollbar { width: 6px; }
+  .card::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+
+  /* ===== 页面切换 ===== */
+  .page { display: none; animation: fadeIn .5s ease; }
+  .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes slideOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-30px); } }
+  @keyframes popIn { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+  @keyframes drawRadar { from { stroke-dashoffset: 1000; } to { stroke-dashoffset: 0; } }
+
+  /* ===== 欢迎页 ===== */
+  .welcome-icon { font-size: 64px; text-align: center; margin-bottom: 16px; }
+  .welcome-title { font-size: 30px; font-weight: 700; text-align: center; color: #333; margin-bottom: 12px; }
+  .welcome-subtitle { font-size: 15px; color: #888; text-align: center; line-height: 1.8; margin-bottom: 36px; }
+  .welcome-features { display: flex; justify-content: center; gap: 24px; margin-bottom: 40px; }
+  .welcome-feature { text-align: center; }
+  .welcome-feature .icon { font-size: 28px; margin-bottom: 6px; }
+  .welcome-feature .label { font-size: 13px; color: #999; }
+
+  /* ===== 按钮 ===== */
+  .btn {
+    display: block;
+    width: 280px;
+    height: 52px;
+    margin: 0 auto;
+    border: none;
+    border-radius: 26px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+    cursor: pointer;
+    transition: var(--transition);
+    box-shadow: 0 8px 24px rgba(102,126,234,.4);
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(102,126,234,.5); }
+  .btn:active { transform: translateY(0); }
+  .btn-secondary {
+    background: #f0f0f5;
+    color: #666;
+    box-shadow: none;
+    font-weight: 500;
+  }
+  .btn-secondary:hover { background: #e8e8f0; box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+
+  /* ===== 进度条 ===== */
+  .progress-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+  .progress-bar { flex: 1; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--grad-1), var(--grad-2)); border-radius: 4px; transition: width .4s ease; }
+  .progress-text { font-size: 14px; color: #aaa; white-space: nowrap; }
+
+  /* ===== 答题页 ===== */
+  .question-num { font-size: 14px; color: var(--grad-1); font-weight: 600; margin-bottom: 10px; }
+  .question-text { font-size: 22px; font-weight: 600; color: #333; line-height: 1.6; margin-bottom: 32px; }
+
+  .option-group { margin-bottom: 24px; }
+  .option-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .option-choice {
+    flex: 1;
+    padding: 18px 20px;
+    border: 2px solid #e8e8f0;
+    border-radius: 14px;
+    font-size: 15px;
+    color: #555;
+    cursor: pointer;
+    transition: var(--transition);
+    text-align: center;
+    line-height: 1.5;
+    position: relative;
+  }
+  .option-choice:hover { border-color: var(--grad-1); background: #f8f9ff; }
+  .option-choice.selected {
+    border-color: var(--grad-1);
+    background: linear-gradient(135deg, rgba(102,126,234,.08), rgba(118,75,162,.08));
+    color: #333;
+    font-weight: 600;
+  }
+  .option-choice.selected::after {
+    content: "✓";
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    color: var(--grad-1);
+    font-size: 16px;
+  }
+
+  .strength-row { display: none; margin-top: 4px; }
+  .strength-row.show { display: block; animation: slideIn .3s ease; }
+  .strength-label { font-size: 13px; color: #aaa; margin-bottom: 10px; text-align: center; }
+  .strength-options { display: flex; gap: 12px; justify-content: center; }
+  .strength-btn {
+    padding: 10px 28px;
+    border: 2px solid #e8e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #666;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .strength-btn:hover { border-color: var(--grad-1); }
+  .strength-btn.selected {
+    border-color: var(--grad-1);
+    background: var(--grad-1);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* ===== 结果页 ===== */
+  .result-type-box { text-align: center; margin-bottom: 20px; animation: popIn .6s ease; }
+  .result-type { font-size: 56px; font-weight: 800; letter-spacing: 4px; background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .result-type-name { font-size: 18px; color: #888; margin-top: 4px; }
+
+  .result-radar { display: flex; justify-content: center; margin: 24px 0 28px; }
+  .result-percentages { display: flex; justify-content: center; gap: 20px; margin-bottom: 32px; flex-wrap: wrap; }
+  .pct-item { text-align: center; min-width: 110px; }
+  .pct-label { font-size: 13px; color: #aaa; margin-bottom: 4px; }
+  .pct-bar-wrap { width: 100%; height: 8px; background: #f0f0f5; border-radius: 4px; overflow: hidden; margin-bottom: 6px; display: flex; }
+  .pct-bar-left { height: 100%; background: var(--grad-1); border-radius: 4px 0 0 4px; transition: width .8s ease; }
+  .pct-bar-right { height: 100%; background: var(--grad-2); border-radius: 0 4px 4px 0; transition: width .8s ease; margin-left: auto; }
+  .pct-values { font-size: 13px; color: #666; }
+  .pct-values strong { color: var(--grad-1); }
+
+  .result-section { margin-bottom: 20px; }
+  .result-section h3 { font-size: 16px; color: var(--grad-1); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .result-section p { font-size: 15px; color: #555; line-height: 1.85; }
+  .result-section ul { list-style: none; padding: 0; }
+  .result-section ul li { font-size: 15px; color: #555; line-height: 1.85; padding-left: 18px; position: relative; }
+  .result-section ul li::before { content: "•"; position: absolute; left: 4px; color: var(--grad-1); font-size: 18px; line-height: 1.5; }
+
+  .result-actions { display: flex; gap: 16px; margin-top: 36px; justify-content: center; }
+
+  /* ===== 雷达图 SVG ===== */
+  .radar-svg text { font-size: 13px; fill: #888; }
+  .radar-svg .axis { stroke: #e0e0e8; stroke-width: 1; }
+  .radar-svg .grid { stroke: #e8e8f0; stroke-width: 1; fill: rgba(102,126,234,.08); }
+  .radar-svg .data-line { stroke: var(--grad-1); stroke-width: 2.5; fill: rgba(102,126,234,.15); }
+  .radar-svg .data-dot { fill: var(--grad-1); }
+</style>
+</head>
+<body>
+<div class="card">
+
+  <!-- ===== 欢迎页 ===== -->
+  <div id="page-welcome" class="page active">
+    <div class="welcome-icon">🧠</div>
+    <div class="welcome-title">MBTI 性格测评</div>
+    <div class="welcome-subtitle">28道题，2-3分钟，探索你的性格类型<br>纯本地运行，数据不会离开你的浏览器</div>
+    <div class="welcome-features">
+      <div class="welcome-feature"><div class="icon">⚡</div><div class="label">快速测评</div></div>
+      <div class="welcome-feature"><div class="icon">📊</div><div class="label">可视化结果</div></div>
+      <div class="welcome-feature"><div class="icon">📖</div><div class="label">深度解读</div></div>
+    </div>
+    <button class="btn" onclick="startQuiz()">开始测评</button>
+  </div>
+
+  <!-- ===== 答题页 ===== -->
+  <div id="page-quiz" class="page">
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-text" id="progressText">1 / 28</div>
+    </div>
+    <div id="questionArea"></div>
+  </div>
+
+  <!-- ===== 结果页 ===== -->
+  <div id="page-result" class="page">
+    <div id="resultContent"></div>
+  </div>
+
+</div>
+
+<script>
+// ===== 题库：28题，每维度7题 =====
+// dim: E/I=0, S/N=1, T/F=2, J/P=3
+const questions = [
+  { dim:0, a:"我喜欢主动与人交流，在社交中充电", b:"我更喜欢独处或少数人相处，在安静中充电" },
+  { dim:0, a:"我倾向于先说出来，边说边想", b:"我习惯先想清楚，再表达出来" },
+  { dim:0, a:"在聚会中我通常是主动结识新朋友的人", b:"在聚会中我更愿意和已认识的人待在一起" },
+  { dim:0, a:"我对外部世界的人和事充满好奇和关注", b:"我更关注内心世界的想法和感受" },
+  { dim:0, a:"长时间独处让我感到无聊和精力下降", b:"长时间社交让我感到疲惫，需要独处恢复" },
+  { dim:0, a:"我做事倾向于先行动再说", b:"我做事倾向于先思考再行动" },
+  { dim:0, a:"别人通常觉得我是一个外向、健谈的人", b:"别人通常觉得我是一个安静、内敛的人" },
+
+  { dim:1, a:"我更关注事实、细节和实际经验", b:"我更关注可能性、整体规律和未来想象" },
+  { dim:1, a:"我更相信经过验证的经验和已有做法", b:"我更愿意尝试新方法和未知的可能性" },
+  { dim:1, a:"我做事喜欢一步一步脚踏实地推进", b:"我做事喜欢先有个大的灵感或愿景再去填充" },
+  { dim:1, a:"我更擅长关注眼前具体的人和事", b:"我更擅长发现事物之间的深层联系和趋势" },
+  { dim:1, a:"我倾向于按部就班、注重传统经验", b:"我倾向于打破常规、追求创新变化" },
+  { dim:1, a:"描述一件事时我更习惯讲具体细节", b:"描述一件事时我更习惯讲整体印象和隐喻" },
+  { dim:1, a:"我认为脚踏实地比仰望星空更重要", b:"我认为想象力和远见比眼前现实更重要" },
+
+  { dim:2, a:"做决定时我更看重逻辑和客观标准", b:"做决定时我更看重感受和对他人的影响" },
+  { dim:2, a:"我认为公平比和谐更重要", b:"我认为和谐比公平更重要" },
+  { dim:2, a:"我倾向于直接指出问题所在", b:"我倾向于先考虑对方感受再委婉表达" },
+  { dim:2, a:"客观分析比共情更能帮我做出好决定", b:"理解他人感受比冷冰冰的分析更重要" },
+  { dim:2, a:"我被认为是一个理性、冷静的人", b:"我被认为是一个温和、有同理心的人" },
+  { dim:2, a:"面对冲突时我更关注事情的对错", b:"面对冲突时我更关注维护关系和情感" },
+  { dim:2, a:"我更欣赏『讲道理』的人", b:"我更欣赏『有人情味』的人" },
+
+  { dim:3, a:"我更喜欢有计划、有条理地安排生活", b:"我更喜欢灵活应变、保持开放的生活" },
+  { dim:3, a:"我倾向于尽早完成任务，不喜欢拖到最后", b:"我倾向于在最后期限前才更有动力完成任务" },
+  { dim:3, a:"我喜欢列出清单并逐一完成", b:"我觉得清单太约束，更喜欢随心来" },
+  { dim:3, a:"我追求确定性，喜欢提前知道安排", b:"我享受即兴和变化，对不确定感更从容" },
+  { dim:3, a:"我认为规则和时间表是为了被遵守的", b:"我认为规则和时间表可以灵活调整" },
+  { dim:3, a:"我倾向于把事情早点定下来", b:"我倾向于保留选择，晚点再定" },
+  { dim:3, a:"做完一件事后我想马上开始下一件", b:"做完一件事后我想先放松一下再说" },
+];
+
+// ===== 16型详细解读 =====
+// 所有字符串用单引号包裹，避免中文双引号冲突
+const typeData = {
+  INTJ: {
+    name: '建筑师',
+    desc: 'INTJ是富有想象力却又果断的战略家。你拥有将宏大愿景转化为现实的能力，擅长系统性思考，总能在纷繁复杂中找到最优路径。你天生对知识有强烈的渴望，喜欢探究事物的底层逻辑，不满足于表面答案。',
+    strengths: ['独立思考，不轻易随波逐流', '战略性思维强，擅长长远规划', '学习能力出色，能快速掌握复杂知识', '目标坚定，执行力强'],
+    weaknesses: ['对他人低效和情绪化缺乏耐心', '社交意愿低，容易被误解为冷漠', '对完美的追求有时导致拖延', '不擅长表达内心情感'],
+    careers: ['战略规划师', '科研工作者', '建筑师', '投资分析师', '技术架构师'],
+    inter: '在人际关系中，你需要理解大多数人并不像你一样追求效率和深度。试着给他人多一些耐心，学会偶尔分享内心想法，这会让亲近的人更有安全感。选择能理解你独立性的伙伴比试图改变自己更重要。'
+  },
+  INTP: {
+    name: '逻辑学家',
+    desc: 'INTP是充满好奇心的分析家。你拥有敏锐的逻辑思维能力，喜欢拆解问题、寻找原理，对任何事物都想追根溯源。你的大脑仿佛一台永不停歇的思想引擎，在各种概念和理论之间自由穿梭。',
+    strengths: ['逻辑思维极强，善于发现漏洞', '创造力丰富，常常有独特见解', '学习能力强，知识面广', '独立，不依赖他人认同'],
+    weaknesses: ['容易陷入空想，行动力不足', '对常规和琐事缺乏耐心', '情感表达困难，显得疏离', '容易质疑自己，内心不安'],
+    careers: ['软件工程师', '科研人员', '数据分析师', '哲学家', '系统架构师'],
+    inter: '你需要找到一个能接受你「需要独处空间」的圈子。在亲密关系中，试着用对方听得懂的方式表达关心，而不是只提供「逻辑解决方案」。记住，有时候陪伴本身比正确的建议更有价值。'
+  },
+  ENTJ: {
+    name: '指挥官',
+    desc: 'ENTJ是天生的领导者。你意志坚定、逻辑清晰、富有远见，在群体中往往会自然地走到领导位置。你享受挑战，敢于做艰难的决策，对无效率和浪费零容忍。',
+    strengths: ['天生的领导力和号召力', '战略眼光长远，决策果断', '执行力强，说到做到', '自信从容，抗压能力强'],
+    weaknesses: ['过于直接，容易伤害他人感受', '控制欲强，不易放权', '对弱点和不理性缺乏耐心', '忽略他人情感需求'],
+    careers: ['企业高管', '项目经理', '律师', '投资人', '创业者'],
+    inter: '你天性追求高效，但人际关系不是项目。试着在交流中多一些倾听，少一些「指令式」表达。给身边的人参与决策的空间，你会发现他们更有积极性和归属感。'
+  },
+  ENTP: {
+    name: '辩论家',
+    desc: 'ENTP是机智灵活的创新者。你思维敏捷、口才出众，喜欢从不同角度看问题，享受智力交锋的乐趣。你的头脑中总有源源不断的新点子，对僵化的规则和传统天然过敏。',
+    strengths: ['思维敏捷，创意源源不断', '辩论能力强，善于说服', '适应力强，不怕变化', '好奇心旺盛，学习领域广'],
+    weaknesses: ['容易三分钟热度，难以坚持', '争辩过度，让他人不适', '忽视细节和执行', '对承诺和常规感到窒息'],
+    careers: ['创业者', '律师', '产品经理', '市场营销策划', '咨询顾问'],
+    inter: '你的魅力在于机智和多元视角，但亲密关系需要稳定感。在争论中学会偶尔「认输」，不是因为错了，而是因为关系比输赢更重要。给伴侣多一些确定性和踏实感。'
+  },
+  INFJ: {
+    name: '提倡者',
+    desc: 'INFJ是安静而有力的理想主义者。你拥有深邃的直觉和强烈的共情能力，能察觉他人隐藏的情绪和需要。你心怀理想，踏实行动，在安静的外表下有着改变世界的热忱。',
+    strengths: ['深度共情，洞察人心', '理想坚定，内心强大', '有远见，能看到事物深层意义', '善于倾听，给人温暖力量'],
+    weaknesses: ['容易内耗，吸收他人负面情绪', '完美主义倾向明显', '难以对他人说「不」', '内心世界复杂，不易被理解'],
+    careers: ['心理咨询师', '作家', '社会工作者', '人力资源顾问', '教师'],
+    inter: '你的共情力是礼物也是负担。学会设立情感边界，定期为自己充电。选择能理解你内心深度的伙伴，不必让每个人懂你，但要让真正在乎你的人走进来。'
+  },
+  INFP: {
+    name: '调停者',
+    desc: 'INFP是温柔的理想主义者。你内心丰富而深邃，对美、意义和真善美有着天生的敏感。你追求内外一致的生活，不愿在价值观上妥协，即使面对现实压力也坚持内心的光。',
+    strengths: ['创造力丰富，内心世界深邃', '价值观坚定，忠于自我', '共情能力极强，善待他人', '追求意义，不甘平庸'],
+    weaknesses: ['容易过度理想化', '行动力不足，想得多做得少', '对批评和冲突非常敏感', '容易自我怀疑'],
+    careers: ['作家', '艺术家', '心理咨询师', 'UX设计师', '非营利组织工作者'],
+    inter: '你的敏感是天赋，但也要学会保护自己不被情绪淹没。在关系中，坦诚表达你的需要，而不是默默等待被理解。找一个能欣赏你内在世界、同时给你安全感的人。'
+  },
+  ENFJ: {
+    name: '主人公',
+    desc: 'ENFJ是富有魅力的引导者。你天生善于感知他人需求，乐于帮助身边人成长，是群体中温暖的核心力量。你的热情和感染力能激发团队凝聚力，让人们愿意追随。',
+    strengths: ['人际敏感度极高，善解人意', '天生的团队凝聚者', '善于激励和引导他人', '有担当，责任感强'],
+    weaknesses: ['容易牺牲自我、委屈自己', '对他人期望过高', '忽视自身需求', '过于在意他人评价'],
+    careers: ['教师', '人力资源经理', '培训师', '心理咨询师', '公关经理'],
+    inter: '你习惯照顾所有人，但别忘了自己也需要被照顾。在关系中学会接受而非只给予，允许自己展露脆弱。你的价值不取决于付出多少，而在于你本身就是值得被爱的。'
+  },
+  ENFP: {
+    name: '竞选者',
+    desc: 'ENFP是热情洋溢的自由灵魂。你对世界充满好奇，对人充满热情，总能发现生活中的可能性和美好。你的感染力极强，善于激发身边人的热情，是天然的社交催化剂。',
+    strengths: ['热情开朗，感染力强', '创造力和想象力丰富', '善于发现人的闪光点', '适应力强，拥抱变化'],
+    weaknesses: ['容易分心、难以专注', '三分钟热度', '不喜欢重复和细节', '容易情绪化'],
+    careers: ['记者', '市场营销策划', '活动策划', '创意总监', '自媒体创作者'],
+    inter: '你的热情是你的超能力，但关系需要深度而非广度。选择少数真正重要的关系用心投入。学会在自由的渴望和稳定的需求之间找到平衡，你不必在两者间二选一。'
+  },
+  ISTJ: {
+    name: '物流师',
+    desc: 'ISTJ是踏实可靠的事务管理者。你做事严谨、责任心强，信守承诺，重视秩序和规则。你是团队中不可或缺的基石，用稳定和可靠为周围人提供安全感。',
+    strengths: ['责任心极强', '做事严谨、注重细节', '守信守时，值得信赖', '有条理，善于管理事务'],
+    weaknesses: ['不够灵活', '对新事物持保守态度', '不擅长表达情感', '对突发变化适应慢'],
+    careers: ['审计师', '财务经理', '行政管理', '质量控制工程师', '法官'],
+    inter: '你的可靠是珍贵品质，但关系中偶尔需要打破常规。试着接受「不完美也可以」的做事方式，给他人的方法留出空间。表达感受不是软弱，而是让关系更亲近的桥梁。'
+  },
+  ISFJ: {
+    name: '守卫者',
+    desc: 'ISFJ是温暖而坚定的守护者。你默默付出、细心体贴，总能记住身边人的需要和偏好。你的爱体现在点滴日常中，用无私的关怀构筑起温暖可靠的环境。',
+    strengths: ['细心体贴', '忠诚可靠', '记忆力强，善于照顾细节', '耐心且富有同情心'],
+    weaknesses: ['容易忽视自身需求', '不善于说「不」', '对变化不安', '过度自我牺牲'],
+    careers: ['护士', '教师', '社工', '行政助理', '客户服务经理'],
+    inter: '你的付出值得被看见和珍惜。学会温柔地提出自己的需求，不必等到精疲力竭才开口。找一个能回馈你温暖、同时帮你释放内心压力的伙伴。'
+  },
+  ESTJ: {
+    name: '总经理',
+    desc: 'ESTJ是高效务实的组织者。你逻辑清晰、执行力强，善于建立秩序和流程，确保事情按时高质量完成。你是天生的管理者，在混乱中能迅速理出头绪并推动落地。',
+    strengths: ['执行力强', '组织管理能力出色', '目标明确，决策果断', '讲原则，有担当'],
+    weaknesses: ['过于强势', '缺乏情感细腻度', '不太能接受不同意见', '对低效零容忍'],
+    careers: ['项目经理', '企业高管', '军官', '法官', '银行经理'],
+    inter: '你的果断和高效令人敬佩，但在关系中需要留出柔软的空间。学会倾听而非指令，接受不同风格的做事方式。家不是公司，偶尔放下掌控欲，会让你和身边人都更轻松。'
+  },
+  ESFJ: {
+    name: '执政官',
+    desc: 'ESFJ是热心的协调者。你善于关注他人需求，维护群体和谐，是社交场合的核心纽带。你的温暖和周到让身边人感到被关心、被重视。',
+    strengths: ['善于协调', '热情周到，乐于助人', '记忆力好，关注细节', '有强烈的责任感和归属感'],
+    weaknesses: ['过度在意他人评价', '不善应对冲突', '容易被利用', '不喜欢变化和不确定性'],
+    careers: ['人力资源经理', '教师', '护士', '活动策划', '客户关系经理'],
+    inter: '你的温暖照亮身边人，但也要记得照亮自己。不必让所有人满意，学会区分「应该做的」和「自己想做的」。在关系中坦然接受他人的帮助和关怀，平衡给予与接受。'
+  },
+  ISTP: {
+    name: '鉴赏家',
+    desc: 'ISTP是冷静务实的探索者。你动手能力强，喜欢拆解、分析、修复实物，天生擅长理解机械和系统运作。你在危机中冷静沉着，是实际问题的高效解决者。',
+    strengths: ['动手能力极强', '冷静理性，危机处理能力强', '灵活变通，适应力强', '善于发现实际解决方案'],
+    weaknesses: ['不善表达情感', '容易显得冷漠疏离', '不喜欢承诺和约束', '对理论缺乏耐心'],
+    careers: ['工程师', '机械师', '消防员', '外科医生', '飞行员'],
+    inter: '你的冷静和务实令人信赖，但亲密关系需要温度。试着用行动之外的方式表达关心——一句话、一个拥抱有时候比修好一件东西更有力量。给身边人多一些确定性的回应。'
+  },
+  ISFP: {
+    name: '探险家',
+    desc: 'ISFP是温和而自由的艺术家。你对美和感受有天然的敏感，用独特的审美和创造力表达自我。你不喜欢冲突，追求和谐自在的生活，是温柔而独立的灵魂。',
+    strengths: ['审美和创造力出众', '温和善良，善解人意', '动手能力强', '灵活随性，适应力好'],
+    weaknesses: ['回避冲突、压抑不满', '缺乏长远规划', '容易受情绪左右', '不擅长自我推广'],
+    careers: ['设计师', '艺术家', '摄影师', '兽医', '厨师'],
+    inter: '你的温柔和审美是珍贵的，但不要为了避免冲突而压抑内心。学会温和而坚定地表达不满，这对关系健康至关重要。找一个能给你自由空间、同时温柔守护你的人。'
+  },
+  ESTP: {
+    name: '企业家',
+    desc: 'ESTP是充满活力的行动派。你反应敏捷、敢于冒险，擅长在当下抓住机会。你享受刺激和挑战，偏好动手实践而非空谈理论，是天生的冒险家和实干家。',
+    strengths: ['行动力极强', '反应敏捷，善于应变', '社交能力出色', '务实，不空谈'],
+    weaknesses: ['缺乏耐心、冲动', '不擅长长远规划', '容易 bored', '忽视他人感受'],
+    careers: ['销售', '创业者', '运动员', '急救人员', '股票交易员'],
+    inter: '你的活力和行动力令人振奋，但长久的经营如同跑马拉松而非短跑。学会在激情之外培养耐心，给重要的人和事更多时间成长。在关系中，留出深度交流的空间。'
+  },
+  ESFP: {
+    name: '表演者',
+    desc: 'ESFP是热情洋溢的享乐主义者。你天生善于享受当下，感染身边人，是聚会中的灵魂人物。你的乐观和活力让平凡日常变得有趣而精彩，是珍贵的快乐传递者。',
+    strengths: ['热情开朗', '感染力强，善于带动气氛', '审美和品味出众', '善于观察和回应他人需求'],
+    weaknesses: ['容易逃避深层问题', '缺乏长远规划', '容易被新鲜感吸引', '不喜欢理论和抽象'],
+    careers: ['活动策划', '演员', '销售', '导游', '美容师'],
+    inter: '你的快乐感染力是天赋，但生活中也有需要面对的深度话题。不必害怕严肃的对话，深层的交流反而会让关系更牢固。找到一个既能陪你享受当下、也能陪你走过低谷的人。'
+  },
+};
+
+// ===== 状态 =====
+let currentIdx = 0;
+let answers = []; // {choice:'a'|'b', strength:1|2|3}
+let selectedChoice = null;
+
+function switchPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startQuiz() {
+  currentIdx = 0;
+  answers = [];
+  switchPage('page-quiz');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = questions[currentIdx];
+  selectedChoice = answers[currentIdx] ? answers[currentIdx].choice : null;
+  const hasStrength = answers[currentIdx] && answers[currentIdx].strength != null;
+
+  // 进度
+  const progress = Math.round((currentIdx) / 28 * 100);
+  document.getElementById('progressFill').style.width = progress + '%';
+  document.getElementById('progressText').textContent = `${currentIdx + 1} / 28`;
+
+  const area = document.getElementById('questionArea');
+  area.innerHTML = `
+    <div style="animation: slideIn .4s ease;">
+      <div class="question-num">第 ${currentIdx + 1} 题</div>
+      <div class="question-text">以下哪个描述更接近你？</div>
+      <div class="option-group">
+        <div class="option-row">
+          <div class="option-choice ${selectedChoice==='a'?'selected':''}" onclick="selectChoice('a')">${q.a}</div>
+        </div>
+        <div class="option-row">
+          <div class="option-choice ${selectedChoice==='b'?'selected':''}" onclick="selectChoice('b')">${q.b}</div>
+        </div>
+      </div>
+      <div class="strength-row ${selectedChoice?'show':''}" id="strengthRow">
+        <div class="strength-label">你的偏好程度是？</div>
+        <div class="strength-options">
+          <div class="strength-btn ${hasStrength&&answers[currentIdx].strength===1?'selected':''}" onclick="selectStrength(1)">轻微</div>
+          <div class="strength-btn ${hasStrength&&answers[currentIdx].strength===2?'selected':''}" onclick="selectStrength(2)">中等</div>
+          <div class="strength-btn ${hasStrength&&answers[currentIdx].strength===3?'selected':''}" onclick="selectStrength(3)">强烈</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; margin-top:28px; justify-content:center;">
+        ${currentIdx > 0 ? '<button class="btn btn-secondary" style="width:120px;" onclick="prevQuestion()">上一题</button>' : ''}
+        <button class="btn" id="nextBtn" onclick="nextQuestion()" style="width:${currentIdx > 0 ? '160px' : '200px'};${!hasStrength ? 'opacity:.5;cursor:not-allowed;':''}" ${!hasStrength?'disabled':''}>
+          ${currentIdx === 27 ? '查看结果' : '下一题'}
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function selectChoice(choice) {
+  selectedChoice = choice;
+  // 保留已有的strength或清除
+  if (answers[currentIdx] && answers[currentIdx].choice !== choice) {
+    answers[currentIdx].choice = choice;
+    answers[currentIdx].strength = null;
+  } else if (!answers[currentIdx]) {
+    answers[currentIdx] = { choice, strength: null };
+  } else {
+    answers[currentIdx].choice = choice;
+  }
+  renderQuestion();
+}
+
+function selectStrength(strength) {
+  if (!answers[currentIdx]) return;
+  answers[currentIdx].strength = strength;
+  renderQuestion();
+}
+
+function prevQuestion() {
+  if (currentIdx > 0) {
+    currentIdx--;
+    renderQuestion();
+  }
+}
+
+function nextQuestion() {
+  if (!answers[currentIdx] || !answers[currentIdx].strength) return;
+  if (currentIdx < 27) {
+    currentIdx++;
+    renderQuestion();
+  } else {
+    showResult();
+  }
+}
+
+// ===== 计分 =====
+function calculate() {
+  const dims = [
+    { a:'E', b:'I', scoreA:0, scoreB:0, pctA:0, pctB:0 },
+    { a:'S', b:'N', scoreA:0, scoreB:0, pctA:0, pctB:0 },
+    { a:'T', b:'F', scoreA:0, scoreB:0, pctA:0, pctB:0 },
+    { a:'J', b:'P', scoreA:0, scoreB:0, pctA:0, pctB:0 },
+  ];
+  for (const ans of answers) {
+    // skip
+  }
+  // 计算各维度得分
+  for (let i = 0; i < answers.length; i++) {
+    const d = dims[questions[i].dim];
+    if (answers[i].choice === 'a') d.scoreA += answers[i].strength;
+    else d.scoreB += answers[i].strength;
+  }
+  for (const d of dims) {
+    const total = d.scoreA + d.scoreB;
+    d.pctA = Math.round(d.scoreA / total * 100);
+    d.pctB = 100 - d.pctA;
+  }
+  const type =
+    (dims[0].scoreA >= dims[0].scoreB ? 'E' : 'I') +
+    (dims[1].scoreA >= dims[1].scoreB ? 'S' : 'N') +
+    (dims[2].scoreA >= dims[2].scoreB ? 'T' : 'F') +
+    (dims[3].scoreA >= dims[3].scoreB ? 'J' : 'P');
+  return { type, dims };
+}
+
+// ===== 雷达图绘制 =====
+function buildRadarSVG(dims) {
+  const cx = 180, cy = 180, maxR = 130;
+  const labels = [
+    { left:dims[0].a, right:dims[0].b },  // E/I
+    { left:dims[1].a, right:dims[1].b },  // S/N
+    { left:dims[2].a, right:dims[2].b },  // T/F
+    { left:dims[3].a, right:dims[3].b },  // J/P
+  ];
+  // 每个维度一个轴，分布在四边形
+  const angles = [
+    -Math.PI/2,        // 上
+    0,                 // 右
+    Math.PI/2,         // 下
+    Math.PI,           // 左
+  ];
+  // 主标签
+  const axisLabels = ['外向 E / 内向 I', '感知 S / 直觉 N', '思考 T / 感受 F', '判断 J / 感知 P'];
+
+  let svg = `<svg class="radar-svg" width="360" height="360" viewBox="0 0 360 360">`;
+  // 网格
+  for (let r = 1; r <= 4; r++) {
+    const rr = maxR * r / 4;
+    let pts = '';
+    for (let i = 0; i < 4; i++) {
+      const x = cx + rr * Math.cos(angles[i]);
+      const y = cy + rr * Math.sin(angles[i]);
+      pts += `${x},${y} `;
+    }
+    svg += `<polygon class="grid" points="${pts}" fill="${r===4?'rgba(102,126,234,.05)':'none'}" stroke="#e8e8f0" stroke-width="1"/>`;
+  }
+  // 轴线
+  for (let i = 0; i < 4; i++) {
+    const x = cx + maxR * Math.cos(angles[i]);
+    const y = cy + maxR * Math.sin(angles[i]);
+    svg += `<line class="axis" x1="${cx}" y1="${cy}" x2="${x}" y2="${y}"/>`;
+  }
+  // 数据多边形：每个维度取主侧的百分比作为该方向的值
+  // 上 = E/I: 用 E 的百分比
+  // 右 = S/N: 用 N 的百分比
+  // 下 = T/F: 用 F 的百分比
+  // 左 = J/P: 用 P 的百分比
+  const dataValues = [
+    dims[0].pctA / 100,  // E
+    dims[1].pctB / 100,  // N
+    dims[2].pctB / 100,  // F
+    dims[3].pctB / 100,  // P
+  ];
+  let dataPts = '';
+  let dataDots = '';
+  for (let i = 0; i < 4; i++) {
+    const rr = maxR * dataValues[i];
+    const x = cx + rr * Math.cos(angles[i]);
+    const y = cy + rr * Math.sin(angles[i]);
+    dataPts += `${x},${y} `;
+    dataDots += `<circle class="data-dot" cx="${x}" cy="${y}" r="5"/>`;
+  }
+  svg += `<polygon class="data-line" points="${dataPts}"/>`;
+  svg += dataDots;
+
+  // 标签
+  const labelPositions = [
+    { x: cx, y: 28, anchor:'middle' },           // 上
+    { x: 340, y: cy+5, anchor:'end' },           // 右
+    { x: cx, y: 348, anchor:'middle' },           // 下
+    { x: 20, y: cy+5, anchor:'start' },          // 左
+  ];
+  for (let i = 0; i < 4; i++) {
+    svg += `<text x="${labelPositions[i].x}" y="${labelPositions[i].y}" text-anchor="${labelPositions[i].anchor}" font-size="13" fill="#888">${axisLabels[i]}</text>`;
+  }
+  svg += `</svg>`;
+  return svg;
+}
+
+// ===== 结果展示 =====
+function showResult() {
+  document.getElementById('progressFill').style.width = '100%';
+  const { type, dims } = calculate();
+  const info = typeData[type];
+
+  let html = `
+    <div class="result-type-box">
+      <div class="result-type">${type}</div>
+      <div class="result-type-name">${info.name}</div>
+    </div>
+    <div class="result-radar">
+      ${buildRadarSVG(dims)}
+    </div>
+    <div class="result-percentages">
+  `;
+  const dimNames = [
+    { a:'E 外向', b:'I 内向' },
+    { a:'S 感知', b:'N 直觉' },
+    { a:'T 思考', b:'F 感受' },
+    { a:'J 判断', b:'P 知觉' },
+  ];
+  for (let i = 0; i < 4; i++) {
+    html += `
+      <div class="pct-item">
+        <div class="pct-bar-wrap">
+          ${dims[i].pctA > 0 ? `<div class="pct-bar-left" style="width:${dims[i].pctA}%"></div>`:''}
+          ${dims[i].pctB > 0 ? `<div class="pct-bar-right" style="width:${dims[i].pctB}%"></div>`:''}
+        </div>
+        <div class="pct-values"><strong>${dims[i].pctA}%</strong> ${dimNames[i].a} &nbsp;vs&nbsp; ${dims[i].pctB}% ${dimNames[i].b}</div>
+      </div>
+    `;
+  }
+  html += `</div>`;
+
+  // 详细解读
+  html += `
+    <div class="result-section">
+      <h3>📖 类型描述</h3>
+      <p>${info.desc}</p>
+    </div>
+    <div class="result-section">
+      <h3>✨ 核心优势</h3>
+      <ul>${info.strengths ? (Array.isArray(info.strengths) ? info.strengths.map(s=>`<li>${s}</li>`).join('') : `<li>${info.strengths}</li>`) : ''}</ul>
+    </div>
+    <div class="result-section">
+      <h3>⚠️ 软肋不足</h3>
+      <ul>${info.weaknesses ? (Array.isArray(info.weaknesses) ? info.weaknesses.map(s=>`<li>${s}</li>`).join('') : `<li>${info.weaknesses}</li>`) : ''}</ul>
+    </div>
+    <div class="result-section">
+      <h3>💼 适合职业方向</h3>
+      <ul>${info.careers ? (Array.isArray(info.careers) ? info.careers.map(s=>`<li>${s}</li>`).join('') : `<li>${info.careers}</li>`) : ''}</ul>
+    </div>
+    <div class="result-section">
+      <h3>🤝 人际交往建议</h3>
+      <p>${info.inter}</p>
+    </div>
+    <div class="result-actions">
+      <button class="btn btn-secondary" style="width:160px;" onclick="startQuiz()">重新测评</button>
+    </div>
+  `;
+
+  document.getElementById('resultContent').innerHTML = html;
+  switchPage('page-result');
+}
+</script>
+</body>
+</html>
